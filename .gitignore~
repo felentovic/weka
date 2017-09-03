@@ -11,7 +11,6 @@ weka/.idea/**/tasks.xml
 weka/.idea/dictionaries
 weka/.idea/
 weka/*.iml
-weka/src/.idea
 
 # Sensitive or high-churn files:
 weka/.idea/**/dataSources/
