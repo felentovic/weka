@@ -8,6 +8,7 @@ weka.classifiers.bayes.net.search.SearchAlgorithm=\
  weka.classifiers.bayes.net.search.local.HillClimber,\
  weka.classifiers.bayes.net.search.local.K2,\
  weka.classifiers.bayes.net.search.local.LAGDHillClimber,\
+ weka.classifiers.bayes.net.search.local.AntColonyOptimization,\
  weka.classifiers.bayes.net.search.local.RepeatedHillClimber,\
  weka.classifiers.bayes.net.search.local.SimulatedAnnealing,\
  weka.classifiers.bayes.net.search.local.TabuSearch,\
