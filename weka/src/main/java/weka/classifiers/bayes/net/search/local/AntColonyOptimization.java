@@ -21,10 +21,15 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
          **/
         double[][] m_fDeltaScoreAdd;
         /**
-         * product of pheromone value and heuristic value for arc
+         * product of pheromone value powered by alpha and heuristic value powered by beta for arc
          **/
-        double[][] m_arcPheromoneHeuristic;
+        double[][] m_arcPheromoneAHeuristicB;
 
+        /**
+         * product of pheromone value and heuristic value powered by beta for arc
+         */
+
+        double[][] m_arcPheromoneHeuristicB;
         /**
          * number of arcs which are still candidates ( not in G and inclusion of arc improves G)
          */
@@ -42,7 +47,9 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
          */
         Cache(int nNrOfNodes) {
             m_fDeltaScoreAdd = new double[nNrOfNodes][nNrOfNodes];
-            m_arcPheromoneHeuristic = new double[nNrOfNodes][nNrOfNodes];
+            m_arcPheromoneAHeuristicB = new double[nNrOfNodes][nNrOfNodes];
+            m_arcPheromoneHeuristicB = new double[nNrOfNodes][nNrOfNodes];
+
         }
 
         /**
@@ -73,8 +80,8 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
          * @param m_nTail number of tail node
          * @param fValue  value to put in cache
          */
-        public void putPheromoneHeuristic(int m_nTail, int m_nHead, double fValue) {
-            m_arcPheromoneHeuristic[m_nTail][m_nHead] = fValue;
+        public void putPheromoneAHeuristicB(int m_nTail, int m_nHead, double fValue) {
+            m_arcPheromoneAHeuristicB[m_nTail][m_nHead] = fValue;
         } // put
 
         /**
@@ -82,8 +89,28 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
          *
          * @return cache value
          */
-        public double getPheromoneHeuristic(int m_nTail, int m_nHead) {
-            return m_arcPheromoneHeuristic[m_nTail][m_nHead];
+        public double getPheromoneAHeuristicB(int m_nTail, int m_nHead) {
+            return m_arcPheromoneAHeuristicB[m_nTail][m_nHead];
+        } // get
+
+        /**
+         * set cache entry
+         *
+         * @param m_nHead number of head node
+         * @param m_nTail number of tail node
+         * @param fValue  value to put in cache
+         */
+        public void putPheromoneHeuristicB(int m_nTail, int m_nHead, double fValue) {
+            m_arcPheromoneHeuristicB[m_nTail][m_nHead] = fValue;
+        } // put
+
+        /**
+         * get cache entry
+         *
+         * @return cache value
+         */
+        public double getPheromoneHeuristicB(int m_nTail, int m_nHead) {
+            return m_arcPheromoneHeuristicB[m_nTail][m_nHead];
         } // get
 
         /**
@@ -105,7 +132,7 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
         /**
          * exponent of pheromone cell in formula (11)
          **/
-        double f_alfa;
+        double f_alpha;
         /**
          * exponent of diff score cell in formula (11)
          **/
@@ -172,7 +199,7 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
          */
         int[] selectIndices(BayesNet bayesNet, Instances instances, double q0) {
             int[] arcs;
-            if (randomNumberGenerator.nextDouble()< q0) {
+            if (randomNumberGenerator.nextDouble() < q0) {
                 arcs = findBestArc(bayesNet, instances);
             } else {
                 arcs = proportionallySelectIndices(bayesNet, instances);
@@ -195,16 +222,16 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
             int nNrOfAtts = instances.numAttributes();
             // find best arc
             for (int iAttributeHead = 0; iAttributeHead < nNrOfAtts; iAttributeHead++) {
-                    for (int iAttributeTail = 0; iAttributeTail < nNrOfAtts; iAttributeTail++) {
-                        if (addArcMakesSense(bayesNet, instances, iAttributeHead,
-                                iAttributeTail)) {
-                            double tmp = pheromone[iAttributeTail][iAttributeHead] * Math.pow(m_Cache.getScore(iAttributeTail, iAttributeHead), f_beta);
-                            if (bestArc[0] == -1 || tmp > bestScore) {
-                                bestArc[0] = iAttributeTail;
-                                bestArc[1] = iAttributeHead;
-                                bestScore = tmp;
-                            }
+                for (int iAttributeTail = 0; iAttributeTail < nNrOfAtts; iAttributeTail++) {
+                    if (addArcMakesSense(bayesNet, instances, iAttributeHead,
+                            iAttributeTail) && m_Cache.getScore(iAttributeTail, iAttributeHead) > 0) {
+                        double valPhHeuB = m_Cache.getPheromoneHeuristicB(iAttributeTail, iAttributeHead);
+                        if (bestArc[0] == -1 || valPhHeuB > bestScore) {
+                            bestArc[0] = iAttributeTail;
+                            bestArc[1] = iAttributeHead;
+                            bestScore = valPhHeuB;
                         }
+                    }
                 }
             }
             return bestArc;
@@ -225,7 +252,7 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
             double counter = 0;
             for (int iAttributeHead = 0, index = 0; iAttributeHead < nNrOfAtts; iAttributeHead++, index++) {
                 for (int iAttributeTail = 0; iAttributeTail < nNrOfAtts; iAttributeTail++) {
-                    double tmpPhHeu = m_Cache.getPheromoneHeuristic(iAttributeTail, iAttributeHead);
+                    double tmpPhHeu = m_Cache.getPheromoneAHeuristicB(iAttributeTail, iAttributeHead);
                     if (Double.compare(tmpPhHeu, 0) > 0 && addArcMakesSense(bayesNet, instances, iAttributeHead, iAttributeTail)) {
                         counter += tmpPhHeu;
                         if (Double.compare(randValue, counter) <= 0) {
@@ -254,18 +281,19 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
                 //if there is not an arc already
                 if (Double.compare(m_Cache.getScore(iAttributeTail, iAttributeHead), Double.NEGATIVE_INFINITY) != 0) {
                     // add entries to cache for adding arcs
-                        double valScore = calcScoreWithExtraParent(iAttributeHead, iAttributeTail)
-                                - fBaseScore;
-                        m_Cache.putScore(iAttributeTail, iAttributeHead, valScore);
-                        double valPhHeu = Math.pow(pheromone[iAttributeTail][iAttributeHead], f_alfa) * Math.pow(valScore, f_beta);
-                        m_Cache.putPheromoneHeuristic(iAttributeTail, iAttributeHead, valPhHeu);
-
+                    double valScore = calcScoreWithExtraParent(iAttributeHead, iAttributeTail)
+                            - fBaseScore;
+                    m_Cache.putScore(iAttributeTail, iAttributeHead, valScore);
+                    double valPhAHeuB = Math.pow(pheromone[iAttributeTail][iAttributeHead], f_alpha) * Math.pow(valScore, f_beta);
+                    m_Cache.putPheromoneAHeuristicB(iAttributeTail, iAttributeHead, valPhAHeuB);
+                    double valPhHeuB = pheromone[iAttributeTail][iAttributeHead] * Math.pow(valScore, f_beta);
+                    m_Cache.putPheromoneHeuristicB(iAttributeTail, iAttributeHead, valPhHeuB);
                 }
             }
         } // updateCacheMatrices
 
         /**
-         * Updates number of available arcs and sum of cells of candidate arcs.
+         * Updates number of available arcs and sum of cells of candidate arcs. For proportionally selecting indices
          *
          * @param bayesNet  Bayes network to add arc to
          * @param instances data set
@@ -278,11 +306,11 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
                 for (int iAttributeTail = 0; iAttributeTail < nNrOfAtts; iAttributeTail++) {
                     //if it creates a cycle or valScore is <= 0 then it is not in set Fg
                     if (m_Cache.getScore(iAttributeTail, iAttributeHead) <= 0 || !addArcMakesSense(bayesNet, instances, iAttributeHead, iAttributeTail)) {
-                        m_Cache.putPheromoneHeuristic(iAttributeTail, iAttributeHead, -1);
+                        m_Cache.putPheromoneAHeuristicB(iAttributeTail, iAttributeHead, -1);
 
                     } else {
                         //sum all positive values
-                        tmpSum += m_Cache.getPheromoneHeuristic(iAttributeTail, iAttributeHead);
+                        tmpSum += m_Cache.getPheromoneAHeuristicB(iAttributeTail, iAttributeHead);
                         tmpAvailableArcs += 1;
                     }
                 }
@@ -312,22 +340,25 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
             for (int iAttributeHead = 0; iAttributeHead < nNrOfAtts; iAttributeHead++) {
                 for (int iAttributeTail = 0; iAttributeTail < nNrOfAtts; iAttributeTail++) {
                     double valScore;
-                    double valPhHeu;
+                    double valPhAHeuB;
+                    double valPhHeuB;
                     if (iAttributeHead == iAttributeTail) {
                         valScore = Double.NEGATIVE_INFINITY;
-                        valPhHeu = -1;
+                        valPhAHeuB = -1;
+                        valPhHeuB = 0;
                     } else {
                         valScore = calcScoreWithExtraParent(iAttributeHead, iAttributeTail)
                                 - fBaseScores[iAttributeHead];
-                        valPhHeu = Math.pow(pheromone[iAttributeTail][iAttributeHead], f_alfa) * Math.pow(valScore, f_beta);
+                        valPhAHeuB = Math.pow(pheromone[iAttributeTail][iAttributeHead], f_alpha) * Math.pow(valScore, f_beta);
+                        valPhHeuB = pheromone[iAttributeTail][iAttributeHead] * Math.pow(valScore, f_beta);
 
                     }
                     m_Cache.putScore(iAttributeTail, iAttributeHead, valScore);
-                    m_Cache.putPheromoneHeuristic(iAttributeTail, iAttributeHead, valPhHeu);
+                    m_Cache.putPheromoneAHeuristicB(iAttributeTail, iAttributeHead, valPhAHeuB);
+                    m_Cache.putPheromoneHeuristicB(iAttributeTail, iAttributeHead, valPhHeuB);
                 }
             }
             updatePheromoneHeuristicCache(bayesNet, instances);
-            // m_Cache.numOfAvailableArcs = nNrOfAtts * (nNrOfAtts - 1) should be;
 
         }// initCache
 
@@ -439,8 +470,8 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
             return m_bInitAsNaiveBayes;
         }
 
-        public void setF_alfa(double f_alfa) {
-            this.f_alfa = f_alfa;
+        public void setF_alpha(double f_alpha) {
+            this.f_alpha = f_alpha;
         }
 
         public void setF_beta(double f_beta) {
@@ -459,7 +490,7 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
             this.explorationCoeff = explorationCoeff;
         }
 
-        public void setSeed(long seed){
+        public void setSeed(long seed) {
             randomNumberGenerator.setSeed(seed);
         }
     }//class Ant
@@ -497,7 +528,7 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
     /**
      * exponent of pheromone cell in formula (11)
      **/
-    private double f_alfa = 1.0;
+    private double f_alpha = 1.0;
     /**
      * exponent of diff score cell in formula (11)
      **/
@@ -523,11 +554,11 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
     protected void search(BayesNet bayesNet, Instances instances) throws Exception {
         m_nMaxNrOfParents = 100000;
         k2 = new K2();
-        k2.setInitAsNaiveBayes(false);
+        k2.setScoreType(getScoreType());
         k2.setMaxNrOfParents(m_nMaxNrOfParents);
         k2.buildStructure(bayesNet, instances);
 
-        //calculate score of hill climber
+        //calculate score of k2
         double totalScore = 0;
         for (int iAttribute = 0; iAttribute < instances.numAttributes(); iAttribute++) {
             totalScore += k2.calcNodeScore(iAttribute);
@@ -551,10 +582,10 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
         bestBayesNet.m_Instances = instances;
         bestBayesNet.initStructure();
         copyParentSets(bestBayesNet, bayesNet);
-
+        System.out.println("Initialize sore:" + fBestScore);
         //create ant
         Ant ant = new Ant();
-        initiliazeAnt(ant);
+        initializeAnt(ant);
 
         //create Hill climber
         hillClimber = new HillClimber();
@@ -562,6 +593,8 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
         hillClimber.setMaxNrOfParents(m_nMaxNrOfParents);
         hillClimber.buildStructure(bayesNet, instances);
         hillClimber.setUseArcReversal(true);
+        hillClimber.setScoreType(getScoreType());
+
         BayesNet currentBayesNet = new BayesNet();
         currentBayesNet.m_Instances = instances;
         int iterationStep = 10;
@@ -582,33 +615,39 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
                     copyParentSets(bestBayesNet, currentBayesNet);
                 }
             }
+            if (iteration % 20 == 0) {
+                System.out.println("Best after iteration " + iteration + ".:" + fBestScore);
+            }
 
             //global pheromone update
             double reciprocalScore = 1 / Math.abs(fBestScore);
-            for (int iAttributeTail = 0, nNrOfAtts = instances.numAttributes(); iAttributeTail < nNrOfAtts; iAttributeTail++) {
-                for (int iAttributeHead = 0; iAttributeHead < nNrOfAtts; iAttributeHead++) {
-                    if (ant.m_arcs[iAttributeTail][iAttributeHead]) {
-                        pheromone[iAttributeTail][iAttributeHead] = (1 - evaporationCoeff) * pheromone[iAttributeTail][iAttributeHead]
-                                + evaporationCoeff * reciprocalScore;
-                    }
+            for (int iAttributeHead = 0, nNrOfAtts = instances.numAttributes(); iAttributeHead < nNrOfAtts; iAttributeHead++) {
+                ParentSet parentSet = bayesNet.getParentSet(iAttributeHead);
+                for (int iAttributeTailIndex = 0; iAttributeTailIndex < parentSet.getNrOfParents(); iAttributeTailIndex++) {
+                    int iAttributeTail = parentSet.getParent(iAttributeTailIndex);
+                    pheromone[iAttributeTail][iAttributeHead] = (1 - evaporationCoeff) * pheromone[iAttributeTail][iAttributeHead]
+                            + evaporationCoeff * reciprocalScore;
                 }
             }
         }
+
+
         // restore current network to best network
         copyParentSets(bayesNet, bestBayesNet);
-    }
 
-    private void initiliazeAnt(Ant ant) {
+    }//search
+
+    private void initializeAnt(Ant ant) {
         //pheromone matrix and stuff
         ant.setMaxNrOfParents(m_nMaxNrOfParents);
         ant.setInitAsNaiveBayes(false);
         ant.setExplorationCoeff(explorationCoeff);
-        ant.setF_alfa(f_alfa);
+        ant.setF_alpha(f_alpha);
         ant.setF_beta(f_beta);
         ant.setPheromone0(pheromone0);
         ant.setQ0(q0);
         ant.setSeed(seed);
-
+        ant.setScoreType(getScoreType());
     }
 
     /**
@@ -634,8 +673,8 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
     public Enumeration<Option> listOptions() {
         Vector<Option> newVector = new Vector<Option>(4);
 
-        newVector.addElement(new Option("\tAlfa coefficient", "A", 1,
-                "-A <alfa coefficient>"));
+        newVector.addElement(new Option("\talpha coefficient", "A", 1,
+                "-A <alpha coefficient>"));
         newVector.addElement(new Option("\tBeta coefficient", "B", 1,
                 "-B <beta coefficient>"));
         newVector.addElement(new Option("\tQ0 coefficient", "Q", 1,
@@ -669,7 +708,7 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
      * <p>
      * <pre>
      * -A
-     *  Alfa coefficient
+     *  alpha coefficient
      * </pre>
      * <p>
      * <pre>
@@ -702,7 +741,7 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
      *  Number of ants
      * </pre>
      * <p>
-     *  <pre>
+     * <pre>
      *  -S
      *  Seed
      * </pre>
@@ -715,7 +754,7 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
     @Override
     public void setOptions(String[] options) throws Exception {
 
-        setF_alfa(parseOptionDouble(Utils.getOption('A', options), 1.0));
+        setF_alpha(parseOptionDouble(Utils.getOption('A', options), 1.0));
         setF_beta(parseOptionDouble(Utils.getOption('B', options), 2.0));
         setQ0(parseOptionDouble(Utils.getOption('Q', options), 0.8));
         setExplorationCoeff(parseOptionDouble(Utils.getOption('X', options), 0.4));
@@ -756,7 +795,7 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
         Vector<String> options = new Vector<String>();
 
         options.add("-A");
-        options.add("" + getF_alfa());
+        options.add("" + getF_alpha());
 
         options.add("-B");
         options.add("" + getF_beta());
@@ -785,12 +824,12 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
     } // getOptions
 
 
-    public double getF_alfa() {
-        return f_alfa;
+    public double getF_alpha() {
+        return f_alpha;
     }
 
-    public void setF_alfa(double f_alfa) {
-        this.f_alfa = f_alfa;
+    public void setF_alpha(double f_alpha) {
+        this.f_alpha = f_alpha;
     }
 
     public double getF_beta() {
@@ -841,11 +880,11 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
         this.numOfAnts = numOfAnts;
     }
 
-    public void setSeed(long seed){
+    public void setSeed(long seed) {
         this.seed = seed;
     }
 
-    public long getSeed(){
+    public long getSeed() {
         return seed;
     }
 
