@@ -373,7 +373,7 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
          */
         private void updateAncestorDescendantArcs(int attributeTail, int attributeHead, final BayesNet bayesNet, Instances instances) {
             //all ancestors of AttributeTail
-            List<Integer> ancestors = imitateRecursion(attributeTail, instances.numAttributes() / 2, new Function() {
+            List<Integer> ancestors = BFS(attributeTail, instances.numAttributes() / 2, new Function() {
                 @Override
                 public void execute(ArrayList<Integer> list, int iNode) {
                     ParentSet parentSet = bayesNet.getParentSet(iNode);
@@ -384,7 +384,7 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
                 }
             });
             //all descendants of AttributeHead
-            List<Integer> descendants = imitateRecursion(attributeHead, instances.numAttributes() / 2, new Function() {
+            List<Integer> descendants = BFS(attributeHead, instances.numAttributes() / 2, new Function() {
                 @Override
                 public void execute(ArrayList<Integer> list, int iNode) {
                     boolean[] descedants = m_arcs[iNode];
@@ -415,7 +415,7 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
          * @param function     the way in which next level of nodes is generated
          * @return list of all visited nodes
          */
-        private List<Integer> imitateRecursion(int initialValue, int initialSize, Function function) {
+        private List<Integer> BFS(int initialValue, int initialSize, Function function) {
             ArrayList<Integer> list = new ArrayList<>(initialSize);
             list.add(initialValue);
             ArrayList<Integer> listPrev = new ArrayList<>(initialSize);
@@ -432,7 +432,7 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
                 listCurr.clear();
             }
             return list;
-        }//imitateRecursion
+        }//BFS
 
         /**
          * Sets the max number of parents
@@ -550,8 +550,10 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
      */
     private long seed = 1;
 
+    private int iterationStep = 10;
     @Override
     protected void search(BayesNet bayesNet, Instances instances) throws Exception {
+        //no boundary to max nr of parents
         m_nMaxNrOfParents = 100000;
         k2 = new K2();
         k2.setScoreType(getScoreType());
@@ -565,7 +567,7 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
         }
 
         //init pheromone matrix
-        pheromone0 = 1 / Math.abs(totalScore);
+        pheromone0 = 1 / (instances.numAttributes() * Math.abs(totalScore));
         pheromone = new double[instances.numAttributes()][instances.numAttributes()];
         for (int i = 0; i < instances.numAttributes(); i++) {
             for (int j = 0; j < instances.numAttributes(); j++) {
@@ -582,7 +584,7 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
         bestBayesNet.m_Instances = instances;
         bestBayesNet.initStructure();
         copyParentSets(bestBayesNet, bayesNet);
-        System.out.println("Initialize sore:" + fBestScore);
+        System.out.println("Initial sore:" + fBestScore);
         //create ant
         Ant ant = new Ant();
         initializeAnt(ant);
@@ -597,7 +599,6 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
 
         BayesNet currentBayesNet = new BayesNet();
         currentBayesNet.m_Instances = instances;
-        int iterationStep = 10;
         for (int iteration = 0; iteration < numOfIterations; iteration++) {
             for (int antNum = 0; antNum < numOfAnts; antNum++) {
                 //new bayes net
@@ -689,6 +690,9 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
                 "-M <num of ants>"));
         newVector.addElement(new Option("\tSeed", "S", 1,
                 "-S <seed>"));
+        newVector.addElement(new Option("\tHill climbing step", "H", 1,
+                "-H <iterationStep>"));
+
         newVector.addAll(Collections.list(super.listOptions()));
 
         return newVector.elements();
@@ -762,6 +766,7 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
         setNumOfIterations(parseOptionInteger(Utils.getOption('I', options), 100));
         setNumOfAnts(parseOptionInteger(Utils.getOption('M', options), 10));
         setSeed(parseOptionInteger(Utils.getOption('M', options), 1));
+        setIterationStep(parseOptionInteger(Utils.getOption('H', options), 1));
 
 
         super.setOptions(options);
@@ -817,6 +822,9 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
 
         options.add("-S");
         options.add("" + getSeed());
+
+        options.add("-H");
+        options.add("" + getIterationStep());
 
         Collections.addAll(options, super.getOptions());
 
@@ -888,4 +896,11 @@ public class AntColonyOptimization extends LocalScoreSearchAlgorithm {
         return seed;
     }
 
+    public void setIterationStep(int iterationStep) {
+        this.iterationStep = iterationStep;
+    }
+
+    public int getIterationStep() {
+        return iterationStep;
+    }
 }//class AntColonyOptimization
