@@ -25,6 +25,7 @@ import java.io.Serializable;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Vector;
+import java.util.concurrent.Callable;
 
 import weka.classifiers.bayes.BayesNet;
 import weka.classifiers.bayes.net.ParentSet;
@@ -80,10 +81,20 @@ import weka.core.Utils;
  * @author Remco Bouckaert (rrb@xm.co.nz)
  * @version $Revision$
  */
-public class HillClimber extends LocalScoreSearchAlgorithm {
+public class HillClimber extends LocalScoreSearchAlgorithm implements Runnable{
 
   /** for serialization */
   static final long serialVersionUID = 4322783593818122403L;
+
+  @Override
+  public void run() {
+    try {
+      buildStructure(m_BayesNet, m_BayesNet.m_Instances);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+  }
 
   /**
    * the Operation class contains info on operations performed on the current

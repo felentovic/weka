@@ -130,11 +130,11 @@ public class LAGDHillClimber extends HillClimber {
   protected void lookAheadInGoodDirectionsSearch(BayesNet bayesNet,
     Instances instances, int nrOfLookAheadSteps, int nrOfGoodOperations)
     throws Exception {
-    System.out.println("Initializing Cache");
+//    System.out.println("Initializing Cache");
     initCache(bayesNet, instances);
 
     while (nrOfLookAheadSteps > 1) {
-      System.out.println("Look Ahead Depth: " + nrOfLookAheadSteps);
+//      System.out.println("Look Ahead Depth: " + nrOfLookAheadSteps);
       boolean legalSequence = true;
       double sequenceDeltaScore = 0;
       Operation[] bestOperation = new Operation[nrOfLookAheadSteps];
@@ -149,7 +149,7 @@ public class LAGDHillClimber extends HillClimber {
         }
       }
       while (legalSequence && sequenceDeltaScore > 0) {
-        System.out.println("Next Iteration..........................");
+//        System.out.println("Next Iteration..........................");
         for (int i = 0; i < nrOfLookAheadSteps; i++) {
           performOperation(bayesNet, instances, bestOperation[i]);
         }
@@ -158,14 +158,14 @@ public class LAGDHillClimber extends HillClimber {
         sequenceDeltaScore = 0;
         for (int i = 0; i < nrOfLookAheadSteps; i++) {
           if (bestOperation[i] != null) {
-            System.out.println(bestOperation[i].m_nOperation + " "
-              + bestOperation[i].m_nHead + " " + bestOperation[i].m_nTail);
+//            System.out.println(bestOperation[i].m_nOperation + " "
+//              + bestOperation[i].m_nHead + " " + bestOperation[i].m_nTail);
             sequenceDeltaScore += bestOperation[i].m_fDeltaScore;
           } else {
             legalSequence = false;
 
           }
-          System.out.println("DeltaScore: " + sequenceDeltaScore);
+//          System.out.println("DeltaScore: " + sequenceDeltaScore);
         }
       }
       --nrOfLookAheadSteps;
@@ -175,7 +175,7 @@ public class LAGDHillClimber extends HillClimber {
     Operation oOperation = getOptimalOperation(bayesNet, instances);
     while ((oOperation != null) && (oOperation.m_fDeltaScore > 0)) {
       performOperation(bayesNet, instances, oOperation);
-      System.out.println("Performing last greedy steps");
+//      System.out.println("Performing last greedy steps");
       oOperation = getOptimalOperation(bayesNet, instances);
     }
     // free up memory
